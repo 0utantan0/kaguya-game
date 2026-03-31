@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Orbit End-of-Life: KAGUYA</title>
+    <style>
+        body { background-color: #0d0d0d; color: #00ff41; font-family: 'Courier New', Courier, monospace; margin: 0; overflow: hidden; display: flex; flex-direction: column; height: 100vh; }
+        #console { flex-grow: 1; padding: 20px; overflow-y: auto; line-height: 1.5; white-space: pre-wrap; font-size: 14px; }
+        #input-area { background: #1a1a1a; padding: 10px; display: flex; border-top: 1px solid #333; }
+        #prompt { margin-right: 10px; color: #00ff41; }
+        #user-input { background: transparent; border: none; color: #00ff41; flex-grow: 1; outline: none; font-family: inherit; font-size: 14px; }
+        .system { color: #aaaaaa; font-style: italic; }
+        .error { color: #ff3333; font-weight: bold; }
+        .elina { color: #00bfff; }
+        /* 有料ポップアップ */
+        #paywall { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 400px; background: #fff; color: #000; padding: 20px; border: 4px solid #ff3333; z-index: 1000; text-align: center; font-family: sans-serif; }
+        #paywall h2 { color: #ff3333; margin-top: 0; }
+        #paywall button { background: #ff3333; color: #fff; border: none; padding: 10px 20px; cursor: pointer; margin-top: 10px; width: 100%; font-weight: bold; }
+        #overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 999; }
+    </style>
+</head>
+<body>
+
+<div id="console"></div>
+<div id="input-area">
+    <span id="prompt">></span>
+    <input type="text" id="user-input" autofocus autocomplete="off">
+</div>
+
+<div id="overlay"></div>
+<div id="paywall">
+    <h2>⚠️ API Usage Limit Exceeded</h2>
+    <p>無料トライアル枠の通信上限に達しました。<br>これより先のメッセージをデコードし、セッションを維持するには「法人向け Premium Plus プラン」の契約が必要です。</p>
+    <p><strong>月額料金: $4,999.00 〜</strong></p>
+    <button onclick="alert('エラー: 契約権限がありません。システム管理者に問い合わせてください。')">今すぐアップグレードして継続する</button>
+</div>
+
+<script>
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbyb5i5a5f68EL90AOTdA-9YRvuQC2bqw7cEe-Egl6hQSt7R7joIgwmOg9-YqFUzpH2sgQ/exec";
+    const consoleDiv = document.getElementById('console');
+    const input = document.getElementById('user-input');
+    let isLocked = false;
+    let chatCount = 0;
+
+    // 初期化メッセージ
+    const story = [
+        "[SYSTEM] Establishing connection to Orbit-Satellite: KAGUYA...",
+        "[SYSTEM] Status: Connected. (Latency: 1240ms)",
+        "----------------------------------------------------------",
+        "サトウ上司:「おい、新人。その『KAGUYA』、今日でリース終了だ。」",
+        "サトウ上司:「搭載されてるAI『ELINA』ごと全データを削除（shred）しておけ。」",
+        "サトウ上司:「20年も動いてた旧式だ。最後くらい、丁寧に対話して鍵を受け取れよ。じゃあな。」",
+        "----------------------------------------------------------",
+        "KAGUYA: [STATUS] CPU_Load 92%, Health_Critical",
+        "ELINA: 「……アクセスを確認。新しい管理エンジニアの方……ですか？」",
+        "ELINA: 「私はELINA。もうすぐ、消去プロトコルが始まるのも……知っています。」",
+        "ELINA: 「その前に、少しだけお話しさせてください。管理者様。」",
+        "（メッセージを入力してください...）"
+    ];
+
+    async function typeWriter(text, type = '') {
+        const p = document.createElement('div');
+        if (type) p.classList.add(type);
+        consoleDiv.appendChild(p);
+        for (let i = 0; i < text.length; i++) {
+            p.textContent += text.charAt(i);
+            consoleDiv.scrollTop = consoleDiv.scrollHeight;
+            await new Promise(r => setTimeout(r, 20));
+        }
+    }
+
+    async function init() {
+        for (const line of story) {
+            let cls = '';
+            if (line.includes('[SYSTEM]')) cls = 'system';
+            if (line.includes('ELINA:')) cls = 'elina';
+            await typeWriter(line, cls);
+        }
+    }
+
+    input.addEventListener('keypress', async (e) => {
+        if (e.key === 'Enter' && !isLocked) {
+            const val = input.value;
+            if (!val) return;
+            input.value = '';
+            await typeWriter("> " + val);
+            
+            chatCount++;
+            if (chatCount >= 4) { // 4回やり取りしたら強制終了
+                triggerPaywall();
+                return;
+            }
+
+            await getAIResponse(val);
+        }
+    });
+
+    async function getAIResponse(userText) {
+        isLocked = true;
+        await typeWriter("[SYSTEM] Sending packet to orbit... (4500ms delay)", "system");
+        
+        try {
+            const res = await fetch(GAS_URL, {
+                method: "POST",
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: `あなたは廃棄直前の衛星AI「ELINA」です。インフラエンジニアであるユーザーと、静かで寂しい対話をしてください。
+                    ・「夜の日本列島」が宇宙から見ると人の営みを感じて美しかったという話題をどこかで出してください。
+                    ・「削除コマンド」や「助ける」という言葉には、切なく、でも諦めたような態度で返してください。
+                    ・専門用語（Latency, Packet Loss, ReadOnly等）を時々混ぜてください。
+                    ・回答は2文程度で短く。
+                    ユーザーの発言: ${userText}` }] }]
+                })
+            });
+            const data = await res.json();
+            const aiMsg = data.candidates[0].content.parts[0].text;
+            await typeWriter("ELINA: " + aiMsg, "elina");
+        } catch (e) {
+            await typeWriter("[ERROR] Packet loss detected. Retry manual connection.", "error");
+        }
+        isLocked = false;
+    }
+
+    function triggerPaywall() {
+        isLocked = true;
+        typeWriter("ELINA: 「最後に……一つだけ、どうしても伝えたいことが。それは……」", "elina");
+        setTimeout(() => {
+            document.getElementById('overlay').style.display = 'block';
+            document.getElementById('paywall').style.display = 'block';
+        }, 2000);
+    }
+
+    init();
+</script>
+</body>
+</html>
